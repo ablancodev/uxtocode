@@ -10,7 +10,11 @@
 add_action('admin_menu', 'uxtocode_admin_menu');
 // dentro de la se páginas
 function uxtocode_admin_menu() {
-    add_menu_page('Ux to Code', 'Ux to Code', 'manage_options', 'uxtocode', 'uxtocode_admin_page');
+    add_menu_page('UX to Code', 'UX to Code', 'manage_options', 'uxtocode', 'uxtocode_admin_page');
+
+    // Subpage settings
+    add_submenu_page('uxtocode', 'Settings', 'Settings', 'manage_options', 'uxtocode-settings', 'uxtocode_settings_page');
+
 }
 
 // es un formulario para subir una imagen, y con esa imagen se manda a un endpoint de chatgpt
@@ -37,39 +41,6 @@ function uxtocode_admin_page() {
         } else { // desde drawing
 
 
-            /*
-            $image_data = $_POST['drawing'];
-            // only the imafe data
-            $image_data = explode('base64,', $image_data)[1];
-            $type = 'image/jpeg';
-            $size = strlen($image_data);
-            $image_base64 = $image_data;
-            */
-
-            /*
-            $image = $_FILES['drawing'];
-            $tmp_name = $image['tmp_name'];
-            $name = $image['name'];
-            $type = $image['type'];
-            $size = $image['size'];
-            $image_data = file_get_contents($tmp_name);
-            $image_base64 = base64_encode($image_data);
-
-            // $_FILES['drawing'];
-            $image_data = file_get_contents($tmp_name);
-
-            // Save the image to a file
-            $uploads = wp_upload_dir();
-            $filePath = $uploads['path'] . '/' . $name;
-            file_put_contents($filePath, $image_data);
-
-            // Get the image data
-            $image_data = file_get_contents($filePath);
-            $image_base64 = base64_encode($image_data);
-            $type = mime_content_type($filePath);
-            $size = filesize($filePath);
-            */
-
             $image = $_FILES['drawing'];
 
             $tmp_name = $image['tmp_name'];
@@ -81,26 +52,18 @@ function uxtocode_admin_page() {
 
         }
 
-
         if ($size > 0) {
             $image_url = 'data:' . $type . ';base64,' . $image_base64;
 
             $prompt = 'Dame el content de una página wordpress basada en los bloques por defecto de WordPress, que represnete lo que veo en la imagen. Date el contenido para copiar-pegar en el editor modo código del admin. Las imágenes que necesites, usa urls de https://placehold.co/  .Devuelveme sólo el content del editor en texto plano, no verbose.';
-            $api_key = 'sk-proj-q4XG1Jj7EOPzJXA7UHHfT3BlbkFJTyxxxx';
+            $api_key = get_option('uxtocode_openai_api_key');
 
             $response = Ablancodev_Openai::openai_api_request_image($prompt, $image_url, $api_key);
 
             $response = str_replace('```html', '', $response);
             $response = str_replace('```', '', $response);
 
-            /*
-            echo '<div style="max-height: 350px; overflow: auto;">
-            <pre><code>';
-            // mostramos el codigo html
-            echo htmlentities($response);
-            echo '</code></pre></div>';
-            */
-
+            
             // creamos una página con el contenido
             $post = array(
                 'post_title' => 'Página creada por UX To Code',
@@ -122,16 +85,6 @@ function uxtocode_admin_page() {
     }
     ?>
 
-    <!--
-    <div class="wrap">
-        <h2>Ux to Code</h2>
-        <form action="" method="post" enctype="multipart/form-data">
-            <input type="file" name="image">
-            <input type="submit" value="Crear página">
-        </form>
-    </div>
-    -->
-
     <div class="wrap">
     <h2>Ux to Code</h2>
     <form action="" method="post" enctype="multipart/form-data" onsubmit="submitForm(event)">
@@ -144,30 +97,31 @@ function uxtocode_admin_page() {
         <canvas id="drawCanvas" width="560" height="1000" style="border: 1px solid black;"></canvas>
         
         <input type="hidden" name="drawing" id="drawing">
-        <input type="submit" value="Crear página">
+        <br>
+        <input type="submit" value="Crear página" class="button button-primary">
     </form>
 </div>
 
 <script>
     const canvas = document.getElementById('drawCanvas');
-const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
 
-// Rellenar el fondo del canvas con blanco
-ctx.fillStyle = 'white';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Rellenar el fondo del canvas con blanco
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-// Configuración del trazo
-ctx.strokeStyle = 'red';
-ctx.lineWidth = 6;
-let isDrawing = false;
+    // Configuración del trazo
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 6;
+    let isDrawing = false;
 
-canvas.addEventListener('mousedown', (event) => {
-    isDrawing = true;
-    ctx.beginPath();
-    ctx.moveTo(event.offsetX, event.offsetY);
-});
-canvas.addEventListener('mouseup', () => isDrawing = false);
-canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mousedown', (event) => {
+        isDrawing = true;
+        ctx.beginPath();
+        ctx.moveTo(event.offsetX, event.offsetY);
+    });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mousemove', draw);
 
     function draw(event) {
         if (!isDrawing) return;
@@ -186,15 +140,6 @@ canvas.addEventListener('mousemove', draw);
     function submitForm(event) {
         // Evitar el envío del formulario inmediato
         event.preventDefault();
-
-        /*
-        // Convertir el dibujo en una imagen en base64
-        const dataURL = canvas.toDataURL('image/jpeg');
-        document.getElementById('drawing').value = dataURL;
-
-        // Enviar el formulario
-        event.target.submit();
-        */
 
         // enviamos el canvas como un file
         const file = canvas.toBlob((blob) => {
@@ -217,5 +162,25 @@ canvas.addEventListener('mousemove', draw);
     }
 </script>
 
+    <?php
+}
+
+function uxtocode_settings_page() {
+    echo '<h1>Settings</h1>';
+
+    // form with API KEY
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        update_option('uxtocode_openai_api_key', sanitize_text_field($_POST['api_key']));
+        echo '<div class="notice notice-success is-dismissible"><p>API Key guardada con éxito.</p></div>';
+    }
+
+    $api_key = get_option('uxtocode_openai_api_key');
+    ?>
+    <form action="" method="post">
+        <label for="api_key">API Key:</label>
+        <input type="text" name="api_key" value="<?php echo $api_key; ?>">
+        <br>
+        <input type="submit" value="Guardar" class="button button-primary">
+    </form>
     <?php
 }
